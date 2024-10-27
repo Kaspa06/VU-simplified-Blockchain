@@ -1,25 +1,24 @@
-#include <iostream>
+#include "hash.h"
 #include <bitset>
-#include <string>
-#include <sstream>
-#include <iomanip>
 #include <algorithm>
 #include <cmath>
-#include <fstream>
+#include <sstream>
+#include <iomanip>
 #include <chrono>
+#include <iostream>
 
 using namespace std;
 using namespace std::chrono;
 
 // Function to apply transformations to make inputs look more different
-string modifyInput(string& input) {
+std::string HashUtils::modifyInput(std::string& input) {
     for (size_t i = 0; i < input.size(); ++i) {
         if (isupper(input[i]) || input[i] == '!') {
-            input[i] ^=(i % 10);  // XOR with position modulo 10
-            input[i] +=5;         // Shift ASCII value up by 5
+            input[i] ^= (i % 10);  // XOR with position modulo 10
+            input[i] += 5;         // Shift ASCII value up by 5
         } else {
-            input[i] ^=(i + 3);  // XOR with position plus 3
-            input[i] -=2;        // Shift ASCII value down by 2
+            input[i] ^= (i + 3);  // XOR with position plus 3
+            input[i] -= 2;        // Shift ASCII value down by 2
         }
     }
 
@@ -29,23 +28,23 @@ string modifyInput(string& input) {
 }
 
 // Function to convert input string to 256-bit binary
-string inputToBits(string& input) {
-    string bits;
+std::string HashUtils::inputToBits(std::string& input) {
+    std::string bits;
 
     while (input.length() < 32) {
-        input += 'blockchain'; // might even call it SALT in case the input is too short
+        input += "blockchain"; // might even call it SALT in case the input is too short
     }
 
     // Convert each character to its 8-bit binary representation
     for (char c : input) {
-        bits += bitset<8>(static_cast<unsigned char>(c)).to_string();
+        bits += std::bitset<8>(static_cast<unsigned char>(c)).to_string();
     }
 
     return bits;
 }
 
 // Function to increment hexadecimal characters
-char incrementHexChar(char hexChar) {
+char HashUtils::incrementHexChar(char hexChar) {
     if (hexChar >= '0' && hexChar <= '9') {
         return (hexChar == '9') ? '0' : (hexChar + 1);
     } else if (hexChar >= 'a' && hexChar <= 'f') {
@@ -55,15 +54,15 @@ char incrementHexChar(char hexChar) {
 }
 
 // Function to convert bits to hexadecimal hash
-string bitsToHex(string& bits, const string& originalInput) {
+std::string HashUtils::bitsToHex(std::string& bits, const std::string& originalInput) {
     // Pad the binary string to be a multiple of 4
     while (bits.size() % 4 != 0) {
         bits = '0' + bits;
     }
 
-    stringstream hexStream;
-    bool containsUpper = any_of(originalInput.begin(), originalInput.end(), ::isupper);
-    bool containsExclamation = originalInput.find('!') != string::npos;
+    std::stringstream hexStream;
+    bool containsUpper = std::any_of(originalInput.begin(), originalInput.end(), ::isupper);
+    bool containsExclamation = originalInput.find('!') != std::string::npos;
 
     // Determine multiplier base
     int multiplierBase = 1;
@@ -78,8 +77,8 @@ string bitsToHex(string& bits, const string& originalInput) {
 
     // Convert 4-bit chunks to hexadecimal
     for (size_t i = 0; i < bits.size(); i += 4) {
-        string chunk = bits.substr(i, 4);
-        int value = stoi(chunk, nullptr, 2);
+        std::string chunk = bits.substr(i, 4);
+        int value = std::stoi(chunk, nullptr, 2);
 
         // Apply transformations
         if (i / 4 < originalInputLength) {  // Ensure no out-of-bounds access here
@@ -94,10 +93,10 @@ string bitsToHex(string& bits, const string& originalInput) {
         value *= multiplierBase + (i / 4); // ensuring that longer inputs and higher indices lead to greater modifications
         value *= abs(sin(originalInput.length() + i / 4)) * 100; // Adding non-linearity to the transformation
 
-        hexStream << hex << value;
+        hexStream << std::hex << value;
     }
 
-    string hexResult = hexStream.str();
+    std::string hexResult = hexStream.str();
 
     // Modify each hexadecimal character
     for (char& c : hexResult) {
@@ -117,7 +116,7 @@ string bitsToHex(string& bits, const string& originalInput) {
 }
 
 // Function to compute word sum
-int computeWordSum(const string& input) {
+int HashUtils::computeWordSum(const std::string& input) {
     int sum = 0;
 
     // Calculate the sum of alphabetical positions for each character (ignoring non-alphabetical characters)
@@ -132,7 +131,7 @@ int computeWordSum(const string& input) {
 }
 
 // Function to multiply bits by word sum
-string multiplyBitsByWordSum(string bits, int wordSum) {
+std::string HashUtils::multiplyBitsByWordSum(std::string bits, int wordSum) {
     // Iterate over each bit and multiply its numeric value by wordSum
     for (size_t i = 0; i < bits.size(); ++i) {
         if (bits[i] == '1') {
@@ -148,8 +147,8 @@ string multiplyBitsByWordSum(string bits, int wordSum) {
 }
 
 // Function to apply a salt-based transformation to diversify bits
-string applySaltTransformation(string& bits, const string& input) {
-    string saltedBits = bits;
+std::string HashUtils::applySaltTransformation(std::string& bits, const std::string& input) {
+    std::string saltedBits = bits;
     size_t inputLength = input.length();
     unsigned long long salt = 0;
 
@@ -157,7 +156,7 @@ string applySaltTransformation(string& bits, const string& input) {
     for (size_t i = 0; i < inputLength; ++i) {
         salt += input[i] * (i + 1);  // Use character position to modify the salt
     }
-    
+
     // XOR each bit with the salt, modifying the salt value based on the index
     for (size_t i = 0; i < bits.size(); ++i) {
         int saltBit = (salt >> (i % 64)) & 1;  // Get one bit from the salt
@@ -167,15 +166,15 @@ string applySaltTransformation(string& bits, const string& input) {
     return saltedBits;
 }
 
-
 // Function to process input and generate the hash
-string processHashInput(const string& input) {
-    string modifiedInput = input + to_string(input.length());
-        modifyInput(modifiedInput);
-        string binaryResult = inputToBits(modifiedInput);
-        int wordSum = computeWordSum(modifiedInput);
-        string modifiedBits = multiplyBitsByWordSum(binaryResult, wordSum);
-        string saltedBits = applySaltTransformation(modifiedBits, modifiedInput);
-        string hashResult = bitsToHex(saltedBits, modifiedInput);
-        return hashResult; // Function adjusted for user.h
-    }
+std::string HashUtils::processHashInput(const std::string& input) {
+    std::string modifiedInput = input + std::to_string(input.length());
+    modifyInput(modifiedInput);
+    std::string binaryResult = inputToBits(modifiedInput);
+    int wordSum = computeWordSum(modifiedInput);
+    std::string modifiedBits = multiplyBitsByWordSum(binaryResult, wordSum);
+    std::string saltedBits = applySaltTransformation(modifiedBits, modifiedInput);
+    std::string hashResult = bitsToHex(saltedBits, modifiedInput);
+    // std::cout << "Hashing input: " << input << " -> " << hashResult << std::endl;
+    return hashResult;
+}
