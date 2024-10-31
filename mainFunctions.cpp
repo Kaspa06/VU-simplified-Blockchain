@@ -31,57 +31,50 @@ std::vector<Transaction> generateTransactions(int transactionNumber, std::vector
             receiverIndex = rand() % users.size();
         } while (senderIndex == receiverIndex);
 
-        int maxAmount = users[senderIndex].getBalance();
-        int amount = rand() % (maxAmount - 1) + 1; // Ensure the transaction amount is between 1 and maxAmount - 1
-
-        std::string transactionID = HashUtils::processHashInput(
-            users[senderIndex].getPublicKey() + users[receiverIndex].getPublicKey() + std::to_string(amount)
-        );
-
-        Transaction newTransaction(transactionID, users[senderIndex].getPublicKey(), users[receiverIndex].getPublicKey(), amount);
-
-        // Verify the transaction and add to the pool only if valid
-        if (verifyTransaction(newTransaction, users)) {
-            transactionPool.push_back(newTransaction);
-        }
+        int amount = rand() % (users[senderIndex].getBalance() - 1) + 1; // Ensure the transaction amount is valid
+        std::string transactionID = HashUtils::processHashInput(users[senderIndex].getPublicKey() + users[receiverIndex].getPublicKey() + std::to_string(amount));
+        transactionPool.emplace_back(transactionID, users[senderIndex].getPublicKey(), users[receiverIndex].getPublicKey(), amount);
     }
     std::cout << "Transactions generation completed" << std::endl;
     return transactionPool;
 }
 
+Block createBlock(const std::vector<Transaction>& transactions, const std::string& previousHash) {
+    Block newBlock(previousHash, transactions, 0); // Set difficulty to 0 for faster mining
+    newBlock.mineBlock();
+    return newBlock;
+}
+
 std::vector<Block> mineBlockchain(std::vector<Transaction>& transactionPool, std::vector<User>& users) {
     std::vector<Block> blockchain;
+    const int maxTransactionsPerBlock = 100;
+    std::ofstream failedTransactionsFile("failedTransactions.txt");
+    int minedBlockIndex = 1; // Move initialization outside the loop
 
     while (!transactionPool.empty()) {
         std::vector<Transaction> validTransactions;
-        for (const auto& transaction : transactionPool) {
-            // Verify transaction to ensure it's still valid
-            bool isBalanceValid = verifyTransaction(transaction, users);
-            bool isHashValid = verifyTransactionHash(transaction);
 
-            if (isBalanceValid && isHashValid) {
-                // Final check on the balance before adding
-                int senderIndex = findUserIndex(users, transaction.getSenderPublicKey());
-                if (senderIndex != -1 && users[senderIndex].getBalance() >= transaction.getAmount()) {
-                    validTransactions.push_back(transaction);
-                } else {
-                    std::cout << "Rejected Transaction due to insufficient balance: " << transaction.getTransactionID() << "\n";
-                }
+        for (auto it = transactionPool.begin(); it != transactionPool.end() && validTransactions.size() < maxTransactionsPerBlock;) {
+            const auto& transaction = *it;
+            std::string senderPublicKey = transaction.getSenderPublicKey();
+            std::string receiverPublicKey = transaction.getReceiverPublicKey();
+            double amount = transaction.getAmount();
+
+            int senderIndex = findUserIndex(users, senderPublicKey);
+            int receiverIndex = findUserIndex(users, receiverPublicKey);
+
+            if (senderIndex != -1 && receiverIndex != -1 && users[senderIndex].getBalance() >= amount) {
+                validTransactions.push_back(transaction);
+                users[senderIndex].updateBalance(-amount);
+                users[receiverIndex].updateBalance(amount);
+                it = transactionPool.erase(it); // Remove valid transaction from the pool
             } else {
-                std::cout << "Rejected Transaction: " << transaction.getTransactionID() << "\n";
+                failedTransactionsFile << "Rejected Transaction due to insufficient balance or invalid user: " << transaction.getTransactionID() << "\n";
+                it = transactionPool.erase(it); // Remove invalid transaction from the pool
             }
         }
 
-        // Select up to 100 valid transactions for the block
-        auto selectedTransactions = selectRandomTransactions(validTransactions, 100);
-        selectedTransactions.erase(
-            std::remove_if(selectedTransactions.begin(), selectedTransactions.end(), [&](const Transaction& tx) {
-                return !verifyTransaction(tx, users);  // Re-check validity
-            }), 
-            selectedTransactions.end()
-        );
-
-        if (selectedTransactions.empty()) {
+        if (validTransactions.empty()) {
             break; // Exit the loop if no valid transactions are available
         }
 
@@ -89,27 +82,19 @@ std::vector<Block> mineBlockchain(std::vector<Transaction>& transactionPool, std
             ? "0000000000000000000000000000000000000000000000000000000000000000"
             : blockchain.back().getBlockID();
 
-        Block newBlock(previousHash, selectedTransactions, 0); // Set difficulty to 0 for faster mining
-        newBlock.mineBlock();
-
-        // Update balances after confirming the block's transactions are valid
-        updateBalances(newBlock.getTransactions(), users);
-
-        // Remove processed transactions from the pool
-        for (const auto& tx : newBlock.getTransactions()) {
-            transactionPool.erase(
-                std::remove_if(transactionPool.begin(), transactionPool.end(), 
-                               [&tx](const Transaction& t) { return t.getTransactionID() == tx.getTransactionID(); }),
-                transactionPool.end());
-        }
-
+        Block newBlock = createBlock(validTransactions, previousHash);
         blockchain.push_back(newBlock);
-        std::cout << "Mined new block: " << newBlock.getBlockID() << " | Transactions in pool: " << transactionPool.size() << std::endl;
+
+        std::cout << minedBlockIndex << " Mined new block: " << newBlock.getBlockID() << " | Transactions in pool: " << transactionPool.size() << std::endl;
+
+        // Save updated user balances to file
+        saveUsersToFile(users, "users.txt");
+        minedBlockIndex++; // Increment the index correctly
     }
 
+    failedTransactionsFile.close();
     return blockchain;
 }
-
 
 std::vector<Transaction> selectRandomTransactions(const std::vector<Transaction>& transactions, int count) {
     std::vector<Transaction> selectedTransactions;
@@ -129,46 +114,35 @@ std::vector<Transaction> selectRandomTransactions(const std::vector<Transaction>
 }
 
 void updateBalances(const std::vector<Transaction>& transactions, std::vector<User>& users) {
-    for (const auto& tx : transactions) {
-        int senderIndex = findUserIndex(users, tx.getSenderPublicKey());
-        int receiverIndex = findUserIndex(users, tx.getReceiverPublicKey());
+    for (const auto& transaction : transactions) {
+        int senderIndex = findUserIndex(users, transaction.getSenderPublicKey());
+        int receiverIndex = findUserIndex(users, transaction.getReceiverPublicKey());
 
-        // Ensure the sender and receiver exist and the sender has sufficient funds before processing
-        if (senderIndex != -1 && receiverIndex != -1) {
-            int senderBalance = users[senderIndex].getBalance();
-            int transactionAmount = tx.getAmount();
+        if (senderIndex != -1) {
+            users[senderIndex].updateBalance(-transaction.getAmount());
+        }
 
-            if (senderBalance >= transactionAmount) {
-                // Deduct from sender and add to receiver
-                users[senderIndex].updateBalance(senderBalance - transactionAmount);
-                users[receiverIndex].updateBalance(users[receiverIndex].getBalance() + transactionAmount);
-            } else {
-                std::cout << "Failed to process transaction due to insufficient balance. Transaction ID: " 
-                          << tx.getTransactionID() << ", Sender: " << users[senderIndex].getName() 
-                          << ", Balance: " << senderBalance 
-                          << ", Amount: " << transactionAmount << "\n";
-            }
-        } else {
-            std::cout << "Failed to process transaction due to invalid sender or receiver. Transaction ID: " 
-                      << tx.getTransactionID() << "\n";
+        if (receiverIndex != -1) {
+            users[receiverIndex].updateBalance(transaction.getAmount());
         }
     }
 }
 
 int findUserIndex(const std::vector<User>& users, const std::string& publicKey) {
-    for (size_t i = 0; i < users.size(); ++i) {
-        if (users[i].getPublicKey() == publicKey) {
-            return i;
-        }
-    }
-    return -1;
+    auto it = std::find_if(users.begin(), users.end(), [&publicKey](const User& user) {
+        return user.getPublicKey() == publicKey;
+    });
+    return (it != users.end()) ? std::distance(users.begin(), it) : -1;
 }
 
 void saveUsersToFile(const std::vector<User>& users, const std::string& filename) {
     std::ofstream file(filename);
+    double totalBalance = 0.0;
     for (const auto& user : users) {
         file << "Name: " << user.getName() << ", Public Key: " << user.getPublicKey() << ", Balance: " << user.getBalance() << "\n";
+        totalBalance += user.getBalance();
     }
+    file << "Total Balance: " << totalBalance << "\n";
     file.close();
 }
 
@@ -207,9 +181,9 @@ void saveBlocksToFile(const std::vector<Block>& blockchain, const std::string& f
     file.close();
 }
 
-void findBlock(const std::string& blockID, const std::vector<Block>& blockchain) {
+void findBlock(const std::string& searchHash, const std::vector<Block>& blockchain) {
     for (const auto& block : blockchain) {
-        if (block.getBlockID() == blockID) {
+        if (block.getBlockID() == searchHash || block.getMerkleRootHash() == searchHash) {
             std::cout << "Block found: " << block.getBlockID() << "\n";
             std::cout << "Block Hash: " << block.calculateBlockHash() << "\n";
             std::cout << "Merkle Root Hash: " << block.getMerkleRootHash() << "\n";
@@ -243,9 +217,9 @@ void findTransaction(const std::string& transactionID, const std::vector<Block>&
     std::cout << "Transaction not found.\n";
 }
 
-void findUser(const std::string& userPublicKey, const std::vector<User>& users) {
+void findUser(const std::string& userName, const std::vector<User>& users) {
     for (const auto& user : users) {
-        if (user.getPublicKey() == userPublicKey) {
+        if (user.getName() == userName) {
             std::cout << "User found:\n";
             std::cout << "Name: " << user.getName() << "\n";
             std::cout << "Public Key: " << user.getPublicKey() << "\n";
@@ -258,23 +232,17 @@ void findUser(const std::string& userPublicKey, const std::vector<User>& users) 
 
 bool verifyTransaction(const Transaction& transaction, const std::vector<User>& users) {
     int senderIndex = findUserIndex(users, transaction.getSenderPublicKey());
-    int receiverIndex = findUserIndex(users, transaction.getReceiverPublicKey());
-
     if (senderIndex == -1) {
-        std::cout << "Invalid Transaction: Sender not found. Transaction ID: " << transaction.getTransactionID() << "\n";
-        return false;
+        return false; // Sender not found
     }
-    if (receiverIndex == -1) {
-        std::cout << "Invalid Transaction: Receiver not found. Transaction ID: " << transaction.getTransactionID() << "\n";
-        return false;
-    }
+
+    // Check if the sender's balance is sufficient
     if (users[senderIndex].getBalance() < transaction.getAmount()) {
-        std::cout << "Invalid Transaction: Insufficient balance. Transaction ID: " << transaction.getTransactionID() 
-                  << ", Sender: " << users[senderIndex].getName() 
-                  << ", Balance: " << users[senderIndex].getBalance() 
-                  << ", Amount: " << transaction.getAmount() << "\n";
-        return false;
+        return false; // Insufficient balance
     }
+
+    // Additional verification logic (e.g., signature verification) can be added here
+
     return true;
 }
 

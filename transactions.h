@@ -16,6 +16,9 @@ public:
     std::string getTransactionID() const;
     std::string getSenderPublicKey() const;
     std::string getReceiverPublicKey() const;
+     bool operator==(const Transaction& other) const {
+        return this->getTransactionID() == other.getTransactionID();
+    }
     int getAmount() const;
 };
 

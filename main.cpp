@@ -3,6 +3,7 @@
 #include "mainFunctions.h"
 #include <cstdlib>
 #include <ctime>
+#include <limits>
 
 int main() {
     srand(static_cast<unsigned int>(time(0)));
@@ -10,12 +11,15 @@ int main() {
 
     std::vector<User> users = generateUsers(userNumber);
     saveUsersToFile(users, "users.txt");
+    saveUsersToFile(users, "createdUsers.txt");
     std::vector<Transaction> transactionPool = generateTransactions(transactionNumber, users);
     saveTransactionsToFile(transactionPool, "transactions.txt");
 
     std::vector<Block> blockchain = mineBlockchain(transactionPool, users);
+    saveBlocksToFile(blockchain, "blockchain.txt");
 
-    saveUsersToFile(users, "usersSort.txt");
+    // Save updated user balances to file again after mining
+    saveUsersToFile(users, "users.txt");
 
     int choice;
     do {
@@ -35,10 +39,10 @@ int main() {
 
         switch (choice) {
             case 1: {
-                std::string blockID;
-                std::cout << "Enter Block ID: ";
-                std::cin >> blockID;
-                findBlock(blockID, blockchain);
+                std::string searchHash;
+                std::cout << "Enter Block Hash or Merkle Root Hash: ";
+                std::cin >> searchHash;
+                findBlock(searchHash, blockchain);
                 break;
             }
             case 2: {
