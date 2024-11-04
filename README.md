@@ -36,11 +36,12 @@ Projekte siekiama sukurti supaprastintą blokų grandinę, kurioje centralizuota
 
     ```cpp
     Block::Block(const std::string& previousHash, const std::vector<Transaction>& transactions, int difficultyTarget)
-        : previousHash(previousHash), transactions(transactions), difficultyTarget(difficultyTarget) {
-        this->timestamp = std::to_string(std::time(0));
-        this->nonce = 0;
-        MerkleTree merkleTree(transactions);
-        this->merkleRootHash = merkleTree.getRootHash();
+    : previousHash(previousHash), transactions(transactions), difficultyTarget(difficultyTarget) {
+    this->timestamp = std::to_string(std::time(0)); // Initialize timestamp with current Unix time
+    this->nonce = 0;
+    MerkleTree merkleTree(transactions);
+    this->merkleRootHash = merkleTree.createMerkleRootHash(); // Use existing MerkleTree class
+    this->version = "1.0"; // Example version, change as needed
     }
     ```
 
