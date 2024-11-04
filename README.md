@@ -135,3 +135,34 @@ Siekiant užtikrinti blokų grandinės stabilumą ir saugumą, projekte taikomos
 -   **Konstruktoriai ir RAII Idėja**: Kiekvienas objektas turi konstruktorinį metodą, kuris automatiškai užkrauna visus reikiamus išteklius. RAII principas užtikrina, kad resursai bus atlaisvinami, kai objektas nebebus reikalingas.
 
 ---
+### Papildomos užduotys
+
+Lygiagretus blokų kasimo proceso realizavimas v0.2 versijoje (+0.5 balo).
+
+    ```cpp
+    #include <omp.h>
+
+    void Block::mineBlock() {
+    std::string target(difficultyTarget, '0'); // Create a string with 'difficultyTarget' number of leading zeros
+
+    bool found = false;
+    #pragma omp parallel num_threads(4)
+    {
+        while (!found) {
+            #pragma omp critical
+            {
+                nonce++;
+                currentHash = calculateBlockHash();
+                if (currentHash.substr(0, difficultyTarget) == target) {
+                    blockID = currentHash;
+                    found = true;
+                }
+                if (nonce % 100000 == 0) {
+                    std::cout << "Still mining... Current Nonce: " << nonce << ", Current Hash: " << currentHash << std::endl;
+                }
+            }
+        }
+    }
+}
+    
+    ```
