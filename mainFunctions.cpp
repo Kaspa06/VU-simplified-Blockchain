@@ -4,6 +4,7 @@
 #include <algorithm>
 #include <random>
 #include <ctime>
+#include "block.h"
 
 std::vector<User> generateUsers(int userNumber) {
     std::vector<User> users;
@@ -40,13 +41,19 @@ std::vector<Transaction> generateTransactions(int transactionNumber, std::vector
 }
 
 Block createBlock(const std::vector<Transaction>& transactions, const std::string& previousHash) {
-    Block newBlock(previousHash, transactions, 0); // Set difficulty to 0 for faster mining
+    Block newBlock(previousHash, transactions, 1); // Set difficulty to 1 for mining
     newBlock.mineBlock();
     return newBlock;
 }
 
 std::vector<Block> mineBlockchain(std::vector<Transaction>& transactionPool, std::vector<User>& users) {
     std::vector<Block> blockchain;
+
+    // Create and mine the genesis block
+    Block genesisBlock = Block::createGenesisBlock();
+    blockchain.push_back(genesisBlock);
+
+    // Proceed to mine subsequent blocks
     const int maxTransactionsPerBlock = 100;
     std::ofstream failedTransactionsFile("failedTransactions.txt");
     int minedBlockIndex = 1; // Move initialization outside the loop
@@ -85,7 +92,9 @@ std::vector<Block> mineBlockchain(std::vector<Transaction>& transactionPool, std
         Block newBlock = createBlock(validTransactions, previousHash);
         blockchain.push_back(newBlock);
 
-        std::cout << minedBlockIndex << " Mined new block: " << newBlock.getBlockID() << " | Transactions in pool: " << transactionPool.size() << std::endl;
+std::cout << minedBlockIndex << " Mined new block: " << newBlock.getBlockID() 
+          << " | Nonce: " << newBlock.getNonce() 
+          << " | Transactions in pool: " << transactionPool.size() << std::endl;
 
         // Save updated user balances to file
         saveUsersToFile(users, "users.txt");
@@ -165,6 +174,7 @@ void saveBlocksToFile(const std::vector<Block>& blockchain, const std::string& f
              << "\nMerkle Root Hash: " << block.getMerkleRootHash()
              << "\nTimestamp: " << block.getTimestamp() 
              << "\nDifficulty Target: " << block.getDifficulty()
+             << "\nVersion: 2.0" 
              << "\nNonce: " << block.getNonce()
              << "\nNumber of Transactions: " << block.getNumTransactions()
              << "\nTransactions:\n";
@@ -189,6 +199,7 @@ void findBlock(const std::string& searchHash, const std::vector<Block>& blockcha
             std::cout << "Merkle Root Hash: " << block.getMerkleRootHash() << "\n";
             std::cout << "Timestamp: " << block.getTimestamp() << "\n";
             std::cout << "Difficulty Target: " << block.getDifficulty() << "\n";
+            std::cout << "Version: 2.0" << "\n";
             std::cout << "Nonce: " << block.getNonce() << "\n";
             std::cout << "Number of Transactions: " << block.getNumTransactions() << "\n";
             std::cout << "Transactions:\n";
@@ -257,3 +268,4 @@ bool verifyTransactionHash(const Transaction& transaction) {
     }
     return true;
 }
+

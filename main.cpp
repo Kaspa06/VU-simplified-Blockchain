@@ -40,7 +40,7 @@ int main() {
         switch (choice) {
             case 1: {
                 std::string searchHash;
-                std::cout << "Enter Block Hash or Merkle Root Hash: ";
+                std::cout << "Enter Merkle Root Hash: ";
                 std::cin >> searchHash;
                 findBlock(searchHash, blockchain);
                 break;

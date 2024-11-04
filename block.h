@@ -31,6 +31,7 @@ public:
     std::string getTimestamp() const; // Getter for timestamp
     std::string getVersion() const; // Getter for version
     void mineBlock();
+    static Block createGenesisBlock();
 };
 
 #endif // BLOCK_H

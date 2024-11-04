@@ -1,7 +1,9 @@
 #include "block.h"
 #include "hash.h" // Include for `processHashInput`
 #include <iostream>
+#include <sstream>
 #include <ctime>
+#include <omp.h>
 
 Block::Block(const std::string& previousHash, const std::vector<Transaction>& transactions, int difficultyTarget)
     : previousHash(previousHash), transactions(transactions), difficultyTarget(difficultyTarget) {
@@ -13,27 +15,50 @@ Block::Block(const std::string& previousHash, const std::vector<Transaction>& tr
 }
 
 std::string Block::calculateBlockHash() const {
-    std::string toHash = previousHash + merkleRootHash + std::to_string(nonce);
-    return HashUtils::processHashInput(toHash);
+    std::stringstream ss;
+    ss << previousHash << timestamp << merkleRootHash << nonce << difficultyTarget;
+    return HashUtils::processHashInput(ss.str());
 }
 
 void Block::mineBlock() {
-    nonce = 0;
-    std::string target(difficultyTarget, '0'); // Set target to a string with 'difficulty' number of zeros
+    std::string target(difficultyTarget, '0'); // Create a string with 'difficultyTarget' number of leading zeros
 
-    // Adjust loop to incrementally find a valid hash
-    while (true) {
-        currentHash = calculateBlockHash(); // Calculate hash using the current nonce
-        if (currentHash.substr(0, difficultyTarget) == target) {
-            std::cout << "Block mined! Nonce: " << nonce << ", Hash: " << currentHash << std::endl;
-            break;
-        } else {
-            nonce++;
-            if (nonce % 100000 == 0) {
-                std::cout << "Still mining... Current Nonce: " << nonce << ", Current Hash: " << currentHash << std::endl;
+    bool found = false;
+    #pragma omp parallel num_threads(4)
+    {
+        while (!found) {
+            #pragma omp critical
+            {
+                nonce++;
+                currentHash = calculateBlockHash();
+                if (currentHash.substr(0, difficultyTarget) == target) {
+                    blockID = currentHash;
+                    found = true;
+                }
+                if (nonce % 100000 == 0) {
+                    std::cout << "Still mining... Current Nonce: " << nonce << ", Current Hash: " << currentHash << std::endl;
+                }
             }
         }
     }
+}
+
+
+Block Block::createGenesisBlock() {
+    std::vector<Transaction> emptyTransactions;
+    std::string genesisPreviousHash = "0000000000000000000000000000000000000000000000000000000000000000";
+    Block genesisBlock(genesisPreviousHash, emptyTransactions, 1); // Set minimal difficulty for the genesis block
+
+    genesisBlock.mineBlock(); // Mine the genesis block
+
+    // Print details
+    std::cout << "Genesis Block created: " << genesisBlock.getBlockID() << std::endl;
+    std::cout << "Timestamp: " << genesisBlock.getTimestamp() << std::endl;
+    std::cout << "Version: 2.0" << std::endl;
+    std::cout << "Difficulty Target: " << genesisBlock.getDifficulty() << std::endl;
+    std::cout << "_______________________________________________________________________________________" << std::endl;
+
+    return genesisBlock;
 }
 
 std::string Block::getBlockID() const {
