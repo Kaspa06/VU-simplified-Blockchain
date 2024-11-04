@@ -92,6 +92,26 @@ Paleidus programą, bus rodoma pagrindinio meniu sąsaja su parinktimis:
 
 ---
 
+### Transakcijų ir blokų atvaizdavimas
+
+Sukurti blokai saugomi `blockchain.txt` faile, kur yra saugoma informacija:
+
+1. **Block Hash**:
+2. **Merkle Root Hash**
+3. **Timestamp**
+4. **Difficulty Target**
+5. **Version**
+6. **Nonce**
+7. **Number of Transactions**
+8. **Transactions**
+![image](https://github.com/user-attachments/assets/f57d6713-6d5f-4b42-be04-e5f58e0fb516)
+
+Atmestos transackcijos dėl nepakankamų lėšų ar dėl neteisingai įvesto vartotojo vardo saugomos faile `failedTransactions.txt`
+![image](https://github.com/user-attachments/assets/6c7306a1-b3c4-41d8-aadb-d12ea3b7fb43)
+
+
+---
+
 ### Objektinio Programavimo Praktikos
 
 Siekiant užtikrinti blokų grandinės stabilumą ir saugumą, projekte taikomos šios objektinio programavimo praktikos:
