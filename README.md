@@ -104,6 +104,7 @@ Sukurti blokai saugomi `blockchain.txt` faile, kur yra saugoma informacija:
 6. **Nonce**
 7. **Number of Transactions**
 8. **Transactions**
+
 ![image](https://github.com/user-attachments/assets/f57d6713-6d5f-4b42-be04-e5f58e0fb516)
 
 Atmestos transackcijos dėl nepakankamų lėšų ar dėl neteisingai įvesto vartotojo vardo saugomos faile `failedTransactions.txt`
