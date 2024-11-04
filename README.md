@@ -137,13 +137,15 @@ Siekiant užtikrinti blokų grandinės stabilumą ir saugumą, projekte taikomos
 ---
 ### Papildomos užduotys
 
-Lygiagretus blokų kasimo proceso realizavimas v0.2 versijoje (+0.5 balo).
+**Lygiagretus blokų kasimo proceso realizavimas v0.2 versijoje (+0.5 balo)**:
 
-    ```cpp
-    #include <omp.h>
+Pridėta lygiagretaus blokų kasimo proceso realizacija naudojant OpenMP biblioteką. Ši realizacija leidžia naudoti kelių gijų kasimo algoritmą, kuris paspartina PoW (Proof-of-Work) procesą.
 
-    void Block::mineBlock() {
-    std::string target(difficultyTarget, '0'); // Create a string with 'difficultyTarget' number of leading zeros
+```cpp
+#include <omp.h>
+
+void Block::mineBlock() {
+    std::string target(difficultyTarget, '0'); // Sukuria eilutę su 'difficultyTarget' skaičiumi nulinių bitų
 
     bool found = false;
     #pragma omp parallel num_threads(4)
@@ -156,6 +158,7 @@ Lygiagretus blokų kasimo proceso realizavimas v0.2 versijoje (+0.5 balo).
                 if (currentHash.substr(0, difficultyTarget) == target) {
                     blockID = currentHash;
                     found = true;
+                    #pragma omp flush(found) // Užtikrina, kad visos gijos žino apie atnaujintą 'found' reikšmę
                 }
                 if (nonce % 100000 == 0) {
                     std::cout << "Still mining... Current Nonce: " << nonce << ", Current Hash: " << currentHash << std::endl;
@@ -164,5 +167,11 @@ Lygiagretus blokų kasimo proceso realizavimas v0.2 versijoje (+0.5 balo).
         }
     }
 }
-    
-    ```
+```
+
+Šioje versijoje:
+- `#pragma omp parallel num_threads(4)` naudojama keturių gijų kasimui.
+- `#pragma omp critical` užtikrina, kad vienu metu tik viena gija atlieka nonce padidinimą ir hash skaičiavimą, taip užkertant kelią konkurenciniam prieigai prie bendrų duomenų.
+- `#pragma omp flush(found)` padeda sinchronizuoti `found` kintamojo reikšmę tarp visų gijų, kai rastas tinkamas hash'as.
+
+---
